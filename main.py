@@ -3,11 +3,10 @@ from aiogram import Bot, Dispatcher
 
 from app.handlers import router
 
-from app.database.models import async_main
+
 from config import TG_TOKEN  # Импортируем TG_TOKEN из config.py
 
-async def main():
-    await async_main()  # добавьте этот вызов для создания таблиц
+async def main(): 
     bot = Bot(token=TG_TOKEN)
     dp = Dispatcher()
     dp.include_router(router)
@@ -19,4 +18,3 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         print('Бот остановлен')
-
