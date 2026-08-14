@@ -1,2 +1,7 @@
-AI_TOKEN = "AIzaSyA_M0TlzNE7AhRK8emswYFXZbVOUR1GBys"
-TG_TOKEN = "6915631516:AAECsSuVOAvtoKuWFIeVKznuYEailQqgFPk"
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TG_TOKEN = os.getenv("TG_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
