@@ -10,6 +10,7 @@ genai.configure(api_key=AI_TOKEN)
 # 2. ВЫБОР МОДЕЛИ
 # Внедряем Gemini 2.5 Flash
 model_name = "gemini-2.5-flash"
+tools=[{"google_search": {}}]
 model = genai.GenerativeModel(model_name)
 # Настройки генерации контента
 config = genai.types.GenerationConfig(
