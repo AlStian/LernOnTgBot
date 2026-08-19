@@ -1,18 +1,51 @@
+from datetime import datetime
 from aiogram import F, Router, Bot
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 from app.generate import ai_generate
-from datetime import datetime
+from app.keyboards import get_action_keyboard
+
 router = Router()
+
+# --- CALLBACK HANDLERS (Обработка нажатий на кнопки) ---
+
+@router.callback_query(F.data == "save_to_fav")
+async def process_save_fav(callback: CallbackQuery):
+    # Заглушка: позже добавим запись в базу данных
+    await callback.answer("Сохранено в Избранное! 🐧", show_alert=True)
+
+@router.callback_query(F.data == "create_todo")
+async def process_create_todo(callback: CallbackQuery):
+    # Заглушка: позже добавим парсинг задач в To-Do
+    await callback.answer("Список покупок сформирован! 🐧", show_alert=True)
+    await callback.message.answer("Задачи добавлены в твой To-Do!")
+
+@router.callback_query(F.data.in_({"ask_faster", "ask_substitute"}))
+async def process_refine_request(callback: CallbackQuery):
+    await callback.answer("Принято, переделываю... ⚡")
+    
+    previous_text = callback.message.text
+    
+    if callback.data == "ask_faster":
+        prompt_addition = "Переделай этот рецепт/план так, чтобы его можно было выполнить за 15 минут."
+    else:
+        prompt_addition = "Предложи альтернативные ингредиенты или упрощенные шаги для этого рецепта/плана."
+
+    full_prompt = f"Вот предыдущий ответ:\n{previous_text}\n\nЗапрос пользователя: {prompt_addition}"
+    
+    new_response = await ai_generate(full_prompt)
+    await callback.message.answer(new_response, reply_markup=get_action_keyboard())
+
+# --- MESSAGE HANDLERS ---
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await message.answer(
-        "Привет! Я бот, твой помощник!\n"
-        "Я работаю на Gemini 2.5 Flash ⚡ и понимаю текст и картинки (мультимодальность)."
+        "Привет! Я Лерон, твой помощник! 🐧\n"
+        "Я работаю на Gemini 2.5 Flash ⚡ и помогу тебе с рецептами и планированием!"
     )
 
 class gen(StatesGroup):
@@ -24,11 +57,15 @@ async def stop_flood(message: Message, state: FSMContext):
 
 @router.message()
 async def generation(message: Message, state: FSMContext, bot: Bot):
-    text = (message.text or message.caption or "").lower()
-
     if await state.get_state() == gen.waiti:
         return await stop_flood(message, state)
 
+    text = (message.text or message.caption or "").lower()
+
+    cooking_keywords = ["рецепт", "приготов", "еда", "кулинар", "блюдо", "готовка"]
+    planning_keywords = ["план", "саморазвит", "цель", "привычк", "расписан", "мотивац"]
+
+    prompt = None
     image_bytes = None
 
     if message.photo:
@@ -62,7 +99,6 @@ async def generation(message: Message, state: FSMContext, bot: Bot):
         f"- Если это рецепт: сначала название блюда/напитка, затем список ингредиентов с эмодзи перед каждым пунктом, затем пошаговый процесс с нумерацией и эмодзи перед каждым шагом.\n"
         f"- Если это план: краткое введение, затем список советов/шагов с нумерацией и эмодзи перед каждым пунктом, в конце краткий вывод."
     )
-
     if image_bytes:
         if text:
             prompt = f"{style_instruction}\nПользователь отправил фото и просит: {text}. Проанализируй изображение и ответь."
@@ -82,9 +118,8 @@ async def generation(message: Message, state: FSMContext, bot: Bot):
         except TelegramBadRequest:
             pass
 
-        # ИЗМЕНЕНИЕ 1: Отправляем ответ без parse_mode и без экранирования.
-        # ИЗМЕНЕНИЕ 2: Убран цикл разбиения, чтобы уместиться в одно сообщение.
-        await message.answer(response)
+        # Отправляем сгенерированный ответ ВМЕСТЕ С КЛАВИАТУРОЙ
+        await message.answer(response, reply_markup=get_action_keyboard())
 
     except Exception as e:
         try:
